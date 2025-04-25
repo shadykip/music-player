@@ -4,25 +4,38 @@ import { ref } from 'vue'
 export const  usePlayerStore = defineStore('player', ()=>{
     const currentTrack = ref(null)
     const isPlaying = ref(false)
-    const playlist = ref([])
-    const volume = ref(0.8)
+    const audioRef = ref(null) // ✅ this is your audio element
 
-    const play = ()=>{
+    const setAudioRef = (el) => {
+      audioRef.value = el
+    }
+  
+    const setTrack = (track) => {
+      currentTrack.value = track
+      if (audioRef.value) {
+        audioRef.value.pause()
+        audioRef.value.src = track.src
+        audioRef.value.load()
+        audioRef.value.play()
         isPlaying.value = true
+      }
     }
-    const pause = ()=>{
-        isPlaying.value = false
+  
+    const play = () => {
+      audioRef.value?.play()
+      isPlaying.value = true
     }
-    const setTrack = (track)=>{
-        currentTrack.value = track
+  
+    const pause = () => {
+      audioRef.value?.pause()
+      isPlaying.value = false
     }
-    return {
+      return {
         currentTrack,
         isPlaying,
-        playlist,
-        volume,
+        setTrack,
+        setAudioRef,
         play,
-        pause,
-        setTrack
-    }
+        pause
+      }
 })
