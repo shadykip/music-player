@@ -18,7 +18,7 @@
           @ended="onEnd"
           controls
           autoplay
-          class="w-100 mt-3"
+          class="w-100 mt-3 d-none"
         ></audio>
         
       <!-- Progress -->
@@ -28,18 +28,64 @@
     <span>{{ formatTime(duration) }}</span>
   </div>
 
-  <div
-    class="progress rounded"
-    style="height: 8px; cursor: pointer;"
-    @click="seekAudio"
-  >
-    <div
-      class="progress-bar bg-primary"
-      role="progressbar"
-      :style="{ width: `${progress}%` }"
+  <div class="progress-container" @click="seekAudio">
+    <div 
+      class="progress-buffered"
+      :style="{ width: `${bufferedProgress}%` }"
+    ></div>
+    <div class="progress-bar bg-primary" :style="{ width: `${progress}%` }"></div>
+    
+    <div 
+      class="progress-handle" 
+      :style="{ left: `${progress}%` }"
+      @mousedown="startDrag"
     ></div>
   </div>
 </div>
+<!-- Custom Controls -->
+<div class="d-flex justify-content-center align-items-center gap-3 mt-4">
+  <!-- Skip Backward Button -->
+  <button class="btn btn-outline-secondary" @click="rewind">
+    <i class="bi bi-skip-backward-fill"></i>
+  </button>
+
+  <!-- Play/Pause Button -->
+  <button class="btn btn-outline-primary" @click="togglePlay">
+    <i :class="isPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill'"></i>
+  </button>
+
+  <!-- Skip Forward Button -->
+  <button class="btn btn-outline-secondary" @click="forward">
+    <i class="bi bi-skip-forward-fill"></i>
+  </button>
+
+  <!-- Volume Control -->
+  <div>
+    <button class="btn btn-outline-secondary" @click="toggleMute">
+      <i :class="isMuted ? 'bi bi-volume-mute-fill' : 'bi bi-volume-up-fill'"></i>
+    </button>
+    <!-- <input
+      type="range"
+      min="0"
+      max="1"
+      step="0.01"
+      v-model="volume"
+      class="form-range"
+      @input="setVolume"
+      style="width: 100px;"
+    /> -->
+  </div>
+
+
+
+  <!-- Time Display -->
+  <span class="text-muted small">
+    {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+  </span>
+</div>
+
+
+
       </div>
   
       <div v-else class="text-muted">
@@ -62,12 +108,18 @@
   
   const trackStore = useTrackStore()
   const playerStore = usePlayerStore()
+  const isDragging = ref(false)
+
   
   const track = ref(null)
 
   
 const currentTime = ref(0)
 const duration = ref(0)
+const isPlaying = ref(false)
+const volume = ref(1)  
+const isMuted = ref(false)  // Mute state
+const isShuffle = ref(false)  // Shuffle state
   
   const loadTrack = async () => {
     const id = route.params.id
@@ -93,17 +145,28 @@ onUnmounted(() => {
     audioEl.value.removeEventListener('timeupdate', updateProgress)
   }
 })
+const togglePlay = () => {
+  if (!audioEl.value) return
+  if (isPlaying.value) {
+    audioEl.value.pause()
+    isPlaying.value = false
+  } else {
+    audioEl.value.play()
+    isPlaying.value = true
+  }
+}
 const onReady = () => {
   if (audioEl.value) {
     audioEl.value.addEventListener('timeupdate', updateProgress)
     duration.value = audioEl.value.duration
+    audioEl.value.play()
+    isPlaying.value = true
   }
-  playerStore.isPlaying = true
 }
 
-  const onEnd = () => {
-    playerStore.isPlaying = false
-  }
+const onEnd = () => {
+  isPlaying.value = false
+}
 
   const progress = computed(() =>
   duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0
@@ -132,4 +195,106 @@ const formatTime = (time) => {
   const sec = Math.floor(time % 60).toString().padStart(2, '0')
   return `${min}:${sec}`
 }
+const rewind = () => {
+  if (!audioEl.value) return
+  // Rewind 10 seconds
+  audioEl.value.currentTime -= 10
+}
+
+const forward = () => {
+  if (!audioEl.value) return
+  // Skip forward 10 seconds
+  audioEl.value.currentTime += 10
+}
+// Adjust the volume
+const setVolume = () => {
+  if (audioEl.value) {
+    audioEl.value.volume = volume.value
+  }
+}
+
+// Toggle mute
+const toggleMute = () => {
+  isMuted.value = !isMuted.value
+  if (audioEl.value) {
+    audioEl.value.muted = isMuted.value
+  }
+}
+
+// Toggle shuffle
+const toggleShuffle = () => {
+  isShuffle.value = !isShuffle.value
+}
+
+const startDrag = (e) => {
+  isDragging.value = true
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+const onDrag = (e) => {
+  if (isDragging.value && audioEl.value) {
+    const progressContainer = e.target.closest('.progress-container')
+    const progressWidth = progressContainer.offsetWidth
+    const offsetX = e.clientX - progressContainer.offsetLeft
+    const newProgress = Math.min(Math.max(0, (offsetX / progressWidth) * 100), 100)
+    progress.value = newProgress
+    audioEl.value.currentTime = (newProgress / 100) * audioEl.value.duration
+  }
+}
+
+const stopDrag = () => {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+const bufferedProgress = computed(() => {
+  if (audioEl.value && audioEl.value.buffered.length > 0) {
+    const bufferedEnd = audioEl.value.buffered.end(audioEl.value.buffered.length - 1)
+    return (bufferedEnd / audioEl.value.duration) * 100
+  }
+  return 0
+})
+
   </script>
+
+  <style scoped>
+.progress-container {
+  position: relative;
+  height: 8px;
+  background-color: #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.progress-bar {
+  height: 100%;
+  transition: width 0.1s ease-in-out;
+}
+
+.progress-buffered {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: #6c757d; /* Buffered progress color */
+  z-index: 1;
+}
+
+.progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background-color: #007bff;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 2; /* Ensure handle is on top */
+  transition: left 0.1s ease-in-out;
+}
+
+
+
+
+</style>
