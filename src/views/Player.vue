@@ -43,8 +43,13 @@
   </div>
 </div>
 <!-- Custom Controls -->
-<div class="d-flex justify-content-center align-items-center gap-3 mt-4">
-  <!-- Skip Backward Button -->
+<div class="d-flex justify-content-between align-items-center gap-3 mt-4">
+  <div>
+    <button @click="previousTrack" class="btn btn-outline-secondary">⏮️ Previous</button>
+
+  </div>
+  <div class="flex-grow-1">
+    <!-- Skip Backward Button -->
   <button class="btn btn-outline-secondary" @click="rewind">
     <i class="bi bi-skip-backward-fill"></i>
   </button>
@@ -64,24 +69,15 @@
     <button class="btn btn-outline-secondary" @click="toggleMute">
       <i :class="isMuted ? 'bi bi-volume-mute-fill' : 'bi bi-volume-up-fill'"></i>
     </button>
-    <!-- <input
-      type="range"
-      min="0"
-      max="1"
-      step="0.01"
-      v-model="volume"
-      class="form-range"
-      @input="setVolume"
-      style="width: 100px;"
-    /> -->
   </div>
-
-
-
   <!-- Time Display -->
   <span class="text-muted small">
     {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
   </span>
+  </div>
+  <div>
+    <button @click="nextTrack" class="btn btn-outline-secondary">⏭️ Next</button>
+  </div>
 </div>
 
 
@@ -255,6 +251,33 @@ const bufferedProgress = computed(() => {
   }
   return 0
 })
+// Function to change to the next track
+const nextTrack = () => {
+  if (!track.value) return
+
+  const currentIndex = trackStore.tracks.findIndex(t => t.id === track.value.id)
+  const nextTrack = trackStore.tracks[currentIndex + 1] || trackStore.tracks[0] // Loop back to the first track
+
+  if (nextTrack) {
+    track.value = nextTrack
+    audioEl.value.src = nextTrack.src
+    audioEl.value.play()
+  }
+}
+
+// Function to go to the previous track
+const previousTrack = () => {
+  if (!track.value) return
+
+  const currentIndex = trackStore.tracks.findIndex(t => t.id === track.value.id)
+  const previousTrack = trackStore.tracks[currentIndex - 1] || trackStore.tracks[trackStore.tracks.length - 1] // Loop to the last track
+
+  if (previousTrack) {
+    track.value = previousTrack
+    audioEl.value.src = previousTrack.src
+    audioEl.value.play()
+  }
+}
 
   </script>
 

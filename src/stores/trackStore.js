@@ -4,6 +4,7 @@ import { ref } from 'vue'
 export const useTrackStore = defineStore('trackStore', () => {
     const tracks = ref([])
     const isLoading = ref(false)
+    const playlists = ref([]) 
   
     const fetchTracks = async () => {
       isLoading.value = true
@@ -16,10 +17,24 @@ export const useTrackStore = defineStore('trackStore', () => {
         isLoading.value = false
       }
     }
+    const fetchPlaylists = async () => {
+      if (isAuthenticated.value) {
+        try {
+          const res = await axios.get('http://localhost:3000/api/playlist', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          })
+          playlists.value = res.data
+        } catch (error) {
+          console.error('Failed to fetch playlists:', error)
+        }
+      }
+    }
   
     return {
       tracks,
+      playlists,
       isLoading,
-      fetchTracks
+      fetchTracks,
+      fetchPlaylists
     }
   })
